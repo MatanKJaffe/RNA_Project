@@ -7,28 +7,6 @@ import send2trash
 import pandas as pd
 import csv
 
-script_info = ("""
-Script to make a Manifest.csv file for importing fastq.gz files into a qiime 2 environment.
-To Install:
-    Open Qiime2 conda environment
-    Install python package "send2trash" using: pip install send2trash
-    Put script in path and navigate to your working directory
-    python ./q2_manifest_maker.py --input_dir <data_directory>
-    
-    Acceptable formats include:
-    
-        <sampleid>.R1.fastq.gz
-        <sampleid>.R2.fastq.gz
-        
-    or
-    
-        <sampleid>_S6_L001_R1_001.fastq.gz
-        <sampleid>_S6_L001_R2_001.fastq.gz
-
-    source : https://github.com/Micro-Biology/BasicBashCode/blob/master/BasicScripts/Q2_manifest_maker.py
-""")
-
-#Class Objects
 
 class FormatError(Exception):
     '''Formating of file is incompatioble with this program.'''
@@ -38,22 +16,22 @@ class Fasta_File_Meta:
 
     '''A class used to store metadata for fasta files, for importing into qiime2.'''
 
-    def __init__(self, file_path):
+    def __init__(self, file_path) -> None:
         self.absolute_path = file_path
 
-        path,file_name = os.path.split(file_path)
+        path,file_name   = os.path.split(file_path)
         self.filename = file_name
 
         try:
             file_parts = file_name.split(".")
-            if file_parts[1][0] is "R":
+            if file_parts[1][0] == "R":
                 self.format = "Basic"
             else:
                 raise ValueError
             self.sample_id = file_parts[0]
         except ValueError:
             file_parts = file_name.split("_")
-            if file_parts[1][0] is "S":
+            if file_parts[1][0] == "S":
                 self.format = "Illumina"
                 self.sample_id = file_parts[0]
             else:
@@ -86,7 +64,7 @@ def delete_file(file_in):
         send2trash.send2trash(file_in)
 
 def save_manifest_file(fasta_list,folder):
-    writer_name = f"{folder}/Manifest.csv"
+    writer_name = f"{folder}/metadata/Manifest.csv"
     delete_file(writer_name)
     writer = open(writer_name, "w")
     header = "sample-id,absolute-filepath,direction\n"
@@ -139,27 +117,26 @@ def make_manifest(data_directory):
     save_manifest_file(full_fasta_class_list,data_directory)
 
 def make_metadata(data_directory):
-    manifest = pd.read_csv(f"{data_directory}/Manifest.csv")
+    manifest = pd.read_csv(f"{data_directory}/metadata/Manifest.csv")
     sample_names = manifest["sample-id"]
     manifest["sample_names"] = list(["".join(list_obj[1:]) for list_obj in sample_names.str.split("-")])
 
     sample_names = list(set(["".join(list_obj[1:]) for list_obj in sample_names.str.split("-")]))
-    metadata = pd.read_excel(f"{data_directory}/metadata.xlsx")
+    metadata = pd.read_excel(f"{data_directory}/metadata/metadata.xlsx")
     metadata = metadata.loc[metadata["Sample Name"].isin(sample_names)].reset_index(drop = True)
     name_id_match = manifest[["sample-id", "sample_names"]].drop_duplicates().reset_index(drop = True)
     metadata["sample-id"] = [name_id_match.loc[name_id_match["sample_names"] == sample,"sample-id"].values[0] for sample in metadata["Sample Name"]]
     metadata[['sample-id','Sample Name', 'gDNA or PCR product',
        'If PCR, does it contain CS1/CS2 linkers?',
        'Primer set used or to be used ', 'Expected amplicon size',
-       'PCR cycles', 'Volume( ul) ', 'Source', 'Remarks']].to_csv(f"{data_directory}/metadata.csv", index = False)
-    csv_to_csv(f"{data_directory}/metadata")
+       'PCR cycles', 'Volume( ul) ', 'Source', 'Remarks']].to_csv(f"{data_directory}/metadata/metadata.csv", index = False)
+    csv_to_tsv(f"{data_directory}/metadata/metadata")
     
-def csv_to_csv(file):
+def csv_to_tsv(file) -> None:
     csv.writer(open(f'{file}.tsv', 'w+'),
             delimiter='\t').writerows(csv.reader(open(f"{file}.csv")))
     
 if __name__ == "__main__":
-    data_directory = "/home/geox-dev/Documents/RNA_Project/data"
+    data_directory:str = "/Users/osn/Code_Library/RNA_Project/data"
     make_manifest(data_directory)
     make_metadata(data_directory)
-
